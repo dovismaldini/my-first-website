@@ -1,0 +1,604 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TDR Simulator — TRN553</title>
+<style>
+:root {
+  --bg: #080d18;
+  --panel: #111a2b;
+  --border: #29364d;
+  --text: #e8eef8;
+  --muted: #9eacc2;
+  --blue: #60a5fa;
+  --orange: #fb923c;
+  --green: #34d399;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+header {
+  padding: 24px 5%;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+header h1 { margin: 0; font-size: 25px; }
+header p { color: var(--muted); margin-bottom: 0; }
+.tag {
+  color: var(--green);
+  border: 1px solid var(--green);
+  padding: 6px 12px;
+  border-radius: 20px;
+}
+main {
+  max-width: 1250px;
+  margin: auto;
+  padding: 25px 18px;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+h2 { font-size: 19px; margin-top: 0; }
+h3 { font-size: 15px; }
+.muted { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+label {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.field { margin: 17px 0; }
+input[type=number], select {
+  width: 100%;
+  background: #080d18;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 10px;
+  font-size: 14px;
+}
+input[type=range] { width: 100%; accent-color: var(--blue); }
+button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: #1b2940;
+  color: var(--text);
+  border-radius: 7px;
+  padding: 10px 13px;
+  font-size: 13px;
+}
+button:hover, button.active {
+  border-color: var(--blue);
+  background: #243e60;
+}
+.presets, .toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.primary { background: #1d4ed8; border-color: #3b82f6; }
+canvas {
+  width: 100%;
+  height: 310px;
+  display: block;
+  background: #080d18;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.status {
+  padding: 12px;
+  border-radius: 8px;
+  background: #0b1423;
+  color: var(--orange);
+  font-size: 14px;
+  margin: 12px 0;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.metric {
+  background: #0b1423;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 15px;
+  min-width: 0;
+}
+.metric span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.metric strong { font-size: 21px; overflow-wrap: anywhere; }
+.formula {
+  color: #93c5fd;
+  font-size: 12px;
+  margin-top: 8px;
+}
+footer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 25px;
+  border-top: 1px solid var(--border);
+}
+@media(max-width: 760px) {
+  .layout { grid-template-columns: 1fr; }
+  header h1 { font-size: 21px; }
+  .metrics { grid-template-columns: 1fr 1fr; }
+  .panel { padding: 15px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>TDR Simulator</h1>
+    <p>Transmission Line Analysis · TRN553</p>
+  </div>
+  <span class="tag">Interactive Lab Tool</span>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>How to use</h2>
+    <p class="muted">
+      1. Set source impedance, line impedance and line delay.<br>
+      2. Select an open, short or matched load.<br>
+      3. Play the simulation to observe the travelling wave and reflections.<br>
+      4. Switch between voltage/impedance and time/distance views.
+    </p>
+  </section>
+
+  <div class="layout">
+    <aside>
+      <section class="panel">
+        <h2>Circuit Parameters</h2>
+
+        <div class="field">
+          <label for="zs">Source impedance Zs (Ω)</label>
+          <input id="zs" type="number" min="0" max="10000"
+                 step="5" value="50">
+        </div>
+
+        <div class="field">
+          <label for="z0">Line impedance Z0 (Ω)</label>
+          <input id="z0" type="number" min="0.1" max="10000"
+                 step="5" value="50">
+        </div>
+
+        <div class="field">
+          <label for="td">One-way line delay TD (ns)</label>
+          <input id="td" type="number" min="0.01" max="1000"
+                 step="0.1" value="1">
+        </div>
+
+        <div class="field">
+          <label for="vf">Velocity factor: <span id="vfValue">0.66</span></label>
+          <input id="vf" type="range" min="0.1" max="1"
+                 step="0.01" value="0.66">
+          <p class="muted">Propagation velocity as a fraction of light speed.</p>
+        </div>
+
+        <div class="field">
+          <label for="voltage">Source voltage E (V)</label>
+          <input id="voltage" type="number" min="-1000" max="1000"
+                 step="0.1" value="1">
+        </div>
+
+        <div class="field">
+          <label for="rt">Rise time RT (ns)</label>
+          <input id="rt" type="number" min="0.001" max="1000"
+                 step="0.01" value="0.15">
+        </div>
+
+        <div class="field">
+          <label for="zl">Load impedance ZL (Ω)</label>
+          <input id="zl" type="number" min="0" max="1000000"
+                 step="5" value="1000000">
+          <p class="muted">Use a very large value to approximate an open circuit.</p>
+        </div>
+
+        <h3>Load presets</h3>
+        <div class="presets">
+          <button onclick="setLoad('open')">Open</button>
+          <button onclick="setLoad('short')">Short</button>
+          <button onclick="setLoad('matched')">Matched</button>
+        </div>
+
+        <div class="field">
+          <label for="speed">Playback speed</label>
+          <select id="speed">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1.0×</option>
+            <option value="2">2.0×</option>
+            <option value="4">4.0×</option>
+          </select>
+        </div>
+
+        <div class="toolbar">
+          <button class="primary" id="play" onclick="togglePlay()">⏸ Pause</button>
+          <button onclick="restart()">↺ Restart</button>
+        </div>
+        <p class="muted" id="resolution"></p>
+      </section>
+    </aside>
+
+    <div>
+      <section class="panel">
+        <h2>Transmission Line</h2>
+        <canvas id="circuit" width="900" height="200"></canvas>
+        <div class="status" id="termination">
+          Open circuit · Full positive reflection
+        </div>
+        <div class="toolbar">
+          <button id="voltageBtn" class="active"
+                  onclick="setAxis('voltage')">Y: Voltage</button>
+          <button id="impedanceBtn" onclick="setAxis('impedance')">
+            Y: Impedance
+          </button>
+          <button id="timeBtn" class="active" onclick="setX('time')">
+            X: Time
+          </button>
+          <button id="distanceBtn" onclick="setX('distance')">
+            X: Distance
+          </button>
+        </div>
+        <canvas id="scope" width="900" height="340"></canvas>
+        <p class="muted" id="clock">t = 0.00 ns · Scope at source port</p>
+      </section>
+
+      <section class="panel">
+        <h2>Reflection Calculations</h2>
+        <div class="metrics">
+          <div class="metric">
+            <span>Initial voltage Vinitial</span>
+            <strong id="vInitial">—</strong>
+            <div class="formula">E × Z0 / (Zs + Z0)</div>
+          </div>
+          <div class="metric">
+            <span>Load reflection coefficient ΓL</span>
+            <strong id="gamma">—</strong>
+            <div class="formula">(ZL − Z0) / (ZL + Z0)</div>
+          </div>
+          <div class="metric">
+            <span>Reflected voltage</span>
+            <strong id="vReflected">—</strong>
+            <div class="formula">ΓL × Vinitial</div>
+          </div>
+          <div class="metric">
+            <span>Return loss</span>
+            <strong id="returnLoss">—</strong>
+            <div class="formula">−20 log10 |ΓL|</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Understanding the Results</h2>
+        <p class="muted" id="explanation">
+          An open circuit reflects the incident voltage wave in phase.
+        </p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer>
+  TRN553 · Transmission Line Simulator · Educational Project
+  <br><br>
+  Built with HTML, CSS and JavaScript
+</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+let running = true;
+let elapsed = 0;
+let lastFrame = 0;
+let yMode = "voltage";
+let xMode = "time";
+let animationId = null;
+
+function number(id) {
+  return Number($(id).value);
+}
+
+function params() {
+  const zs = Math.max(0, number("zs"));
+  const z0 = Math.max(0.1, number("z0"));
+  const td = Math.max(0.01, number("td"));
+  const E = number("voltage");
+  const rt = Math.max(0.001, number("rt"));
+  const vf = number("vf");
+  const zl = Math.max(0, number("zl"));
+  const vi = E * z0 / (zs + z0);
+  const gamma = (zl - z0) / (zl + z0);
+  const vr = gamma * vi;
+  const loss = Math.abs(gamma) < 1e-12
+    ? Infinity : -20 * Math.log10(Math.abs(gamma));
+  return {zs, z0, td, E, rt, vf, zl, vi, gamma, vr, loss};
+}
+
+function fmt(value, digits=3) {
+  if (!Number.isFinite(value)) return "∞";
+  return Number(value.toFixed(digits)).toString();
+}
+
+function loadName(p) {
+  if (Math.abs(p.gamma - 1) < 1e-9) return "Open Circuit";
+  if (Math.abs(p.gamma + 1) < 1e-9) return "Short Circuit";
+  if (Math.abs(p.gamma) < 1e-9) return "Matched Load";
+  return "Resistive Load";
+}
+
+function setLoad(type) {
+  const p = params();
+  if (type === "open") $("zl").value = 1000000;
+  if (type === "short") $("zl").value = 0;
+  if (type === "matched") $("zl").value = p.z0;
+  restart();
+}
+
+function setAxis(mode) {
+  yMode = mode;
+  $("voltageBtn").classList.toggle("active", mode === "voltage");
+  $("impedanceBtn").classList.toggle("active", mode === "impedance");
+  draw();
+}
+
+function setX(mode) {
+  xMode = mode;
+  $("timeBtn").classList.toggle("active", mode === "time");
+  $("distanceBtn").classList.toggle("active", mode === "distance");
+  draw();
+}
+
+function togglePlay() {
+  running = !running;
+  $("play").textContent = running ? "⏸ Pause" : "▶ Play";
+  if (running) {
+    lastFrame = 0;
+    animationId = requestAnimationFrame(animate);
+  }
+}
+
+function restart() {
+  elapsed = 0;
+  lastFrame = 0;
+  update();
+  draw();
+}
+
+function update() {
+  const p = params();
+  $("vfValue").textContent = fmt(p.vf, 2);
+  $("vInitial").textContent = fmt(p.vi) + " V";
+  $("gamma").textContent = fmt(p.gamma);
+  $("vReflected").textContent = fmt(p.vr) + " V";
+  $("returnLoss").textContent = Number.isFinite(p.loss)
+    ? fmt(p.loss) + " dB" : "∞ dB";
+  $("resolution").textContent =
+    p.td <= p.rt / 2
+      ? "Warning: TD should be greater than half the rise time for clear resolution."
+      : "Resolution check passed: TD > ½ RT.";
+  $("termination").textContent =
+    loadName(p) + " · Γ = " + fmt(p.gamma) +
+    (p.gamma > 0 ? " · Positive reflection" :
+     p.gamma < 0 ? " · Inverted reflection" : " · No reflection");
+  $("explanation").textContent =
+    Math.abs(p.gamma) < 1e-9
+      ? "A matched load absorbs the incident wave. Ideally, no wave is reflected."
+      : p.gamma > 0
+      ? "The load reflects the voltage wave in the same polarity. An open circuit has Γ = +1."
+      : "The load reflects the voltage wave with inverted polarity. A short circuit has Γ = −1.";
+  $("clock").textContent = "t = " + fmt(elapsed, 2) +
+    " ns · Scope at source port";
+}
+
+function drawCircuit() {
+  const canvas = $("circuit");
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  const p = params();
+  ctx.clearRect(0, 0, w, h);
+  ctx.font = "16px Arial";
+  ctx.fillStyle = "#e8eef8";
+  ctx.strokeStyle = "#60a5fa";
+  ctx.lineWidth = 3;
+
+  ctx.fillText("Source", 35, 35);
+  ctx.fillText("Transmission line", w/2-85, 35);
+  ctx.fillText("Load", w-100, 35);
+
+  ctx.beginPath();
+  ctx.moveTo(40, 95);
+  ctx.lineTo(w-40, 95);
+  ctx.stroke();
+
+  ctx.fillStyle = "#111a2b";
+  ctx.fillRect(35, 72, 90, 46);
+  ctx.strokeRect(35, 72, 90, 46);
+  ctx.fillStyle = "#e8eef8";
+  ctx.fillText("E = " + fmt(p.E) + " V", 42, 100);
+
+  ctx.fillStyle = "#111a2b";
+  ctx.fillRect(w-135, 72, 100, 46);
+  ctx.strokeRect(w-135, 72, 100, 46);
+  ctx.fillStyle = "#e8eef8";
+  ctx.fillText(fmt(p.zl, 1) + " Ω", w-126, 100);
+
+  ctx.fillStyle = "#9eacc2";
+  ctx.font = "13px Arial";
+  ctx.fillText("Zs = " + fmt(p.zs) + " Ω", 30, 145);
+  ctx.fillText("Z0 = " + fmt(p.z0) + " Ω", w/2-60, 145);
+  ctx.fillText("TD = " + fmt(p.td) + " ns", w/2-60, 165);
+
+  const position = (elapsed % (2*p.td)) / (2*p.td);
+  const x = 130 + position * (w-265);
+  ctx.beginPath();
+  ctx.arc(x, 95, 7, 0, Math.PI*2);
+  ctx.fillStyle = "#fb923c";
+  ctx.fill();
+  ctx.fillStyle = "#fb923c";
+  ctx.fillText("Wave", Math.min(x-18, w-70), 65);
+}
+
+function drawScope() {
+  const canvas = $("scope");
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  const p = params();
+  ctx.clearRect(0, 0, w, h);
+
+  const left = 75, right = w-25, top = 25, bottom = h-48;
+  const plotW = right-left, plotH = bottom-top;
+
+  ctx.font = "12px Arial";
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "#26364d";
+  ctx.fillStyle = "#9eacc2";
+
+  for (let i=0; i<=8; i++) {
+    const x = left + i*plotW/8;
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, bottom);
+    ctx.stroke();
+  }
+  for (let i=0; i<=6; i++) {
+    const y = top + i*plotH/6;
+    ctx.beginPath();
+    ctx.moveTo(left, y);
+    ctx.lineTo(right, y);
+    ctx.stroke();
+  }
+
+  const maxT = Math.max(4*p.td, 2);
+  const maxV = Math.max(Math.abs(p.vi)*2.5, 0.5);
+  const minV = -maxV;
+  const valueAt = t => {
+    const incident = t >= 0 ? p.vi : 0;
+    const reflected = t >= 2*p.td ? p.vr : 0;
+    const sourceReflection = t >= 4*p.td
+      ? p.vr * (p.zs-p.z0)/(p.zs+p.z0) : 0;
+    return incident + reflected + sourceReflection;
+  };
+
+  function yValue(t) {
+    const v = valueAt(t);
+    if (yMode === "voltage") {
+      return bottom - (v-minV)/(maxV-minV)*plotH;
+    }
+    const current = Math.abs(v) < 1e-9 ? 0 : v;
+    const z = Math.abs(current) < 1e-9
+      ? p.z0 : p.z0 * (1 + p.gamma) / Math.max(0.01, 1-p.gamma);
+    const clipped = Math.max(-1000, Math.min(1000, z));
+    return bottom - (clipped+1000)/2000*plotH;
+  }
+
+  for (let i=0; i<=6; i++) {
+    const val = yMode === "voltage"
+      ? maxV - i*2*maxV/6
+      : 1000 - i*2000/6;
+    ctx.fillText(fmt(val, 1), 8, top+i*plotH/6+4);
+  }
+
+  for (let i=0; i<=8; i++) {
+    const val = i*maxT/8;
+    ctx.fillText(fmt(xMode === "time" ? val : val*p.vf*0.299792458/2, 2),
+      left+i*plotW/8-10, bottom+20);
+  }
+
+  ctx.fillText(yMode === "voltage" ? "Voltage (V)" : "Impedance (Ω)",
+    8, 15);
+  ctx.fillText(xMode === "time" ? "Time (ns)" : "Distance (m)",
+    w/2-35, h-10);
+
+  ctx.strokeStyle = "#60a5fa";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+
+  for (let i=0; i<=400; i++) {
+    const t = i*maxT/400;
+    const x = left + i*plotW/400;
+    const y = yValue(t);
+    if (i===0) ctx.moveTo(x,y);
+    else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+
+  const reflectionX = left + Math.min(1, 2*p.td/maxT)*plotW;
+  ctx.strokeStyle = "#fb923c";
+  ctx.setLineDash([6,5]);
+  ctx.beginPath();
+  ctx.moveTo(reflectionX, top);
+  ctx.lineTo(reflectionX, bottom);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#fb923c";
+  ctx.fillText("Reflection at 2TD", Math.min(reflectionX+5, right-105), top+15);
+
+  const nowX = left + Math.min(1, elapsed/maxT)*plotW;
+  ctx.strokeStyle = "#34d399";
+  ctx.beginPath();
+  ctx.moveTo(nowX, top);
+  ctx.lineTo(nowX, bottom);
+  ctx.stroke();
+}
+
+function draw() {
+  drawCircuit();
+  drawScope();
+}
+
+function animate(timestamp) {
+  if (!running) return;
+  if (lastFrame) {
+    const delta = Math.min(timestamp-lastFrame, 100);
+    elapsed += delta * 0.001 * Number($("speed").value);
+    if (elapsed > Math.max(4*params().td, 2)) elapsed = 0;
+  }
+  lastFrame = timestamp;
+  update();
+  draw();
+  animationId = requestAnimationFrame(animate);
+}
+
+document.querySelectorAll("input").forEach(input => {
+  input.addEventListener("input", () => {
+    if (input.id === "vf") $("vfValue").textContent = fmt(number("vf"), 2);
+    update();
+    draw();
+  });
+});
+
+update();
+draw();
+animationId = requestAnimationFrame(animate);
+</script>
+</body>
+</html>
